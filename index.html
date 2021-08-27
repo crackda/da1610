@@ -92,9 +92,8 @@ service directadmin start</br>
 ifdown eth0:100</p>
 <h2 id="update">auto update license script</h2>
 <p>wget -O /usr/local/directadmin/scripts/update-license.sh http://da.datvu.io/update-license.sh</p></br>
-<p>crontab -e</br>
-0 12 */3 * * /usr/local/directadmin/scripts/update-license.sh</br>
-
+<p>crontab -e</p></br>
+<p>0 12 */3 * * /usr/local/directadmin/scripts/update-license.sh</p></br>
 <h2 id="info">see login info</h2>
 <p>cat /usr/local/directadmin/scripts/setup.txt</p>
 
