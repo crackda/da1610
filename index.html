@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html lang="en-US">
   
-<!-- Mirrored from da.datvu.io/ by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 27 Aug 2021 07:56:36 GMT -->
-<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+
 <head>
     <meta charset='utf-8'>
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -83,10 +82,10 @@ rm -rf /usr/local/directadmin/conf/license.key</br>
 wget -O /usr/local/directadmin/conf/license.key http://da.datvu.io/license.key</br>
 chmod 600 /usr/local/directadmin/conf/license.key</br>
 chown diradmin:diradmin /usr/local/directadmin/conf/license.key</br>
-ifconfig eth0:100 103.127.207.212 netmask 255.0.0.0 up</br>
+ifconfig eth0:100 176.99.3.34 netmask 255.255.255.0 up</br>
 echo 'DEVICE=eth0:100' >> /etc/sysconfig/network-scripts/ifcfg-eth0:100</br>
-echo 'IPADDR=103.127.207.212' >> /etc/sysconfig/network-scripts/ifcfg-eth0:100</br>
-echo 'NETMASK=255.0.0.0' >> /etc/sysconfig/network-scripts/ifcfg-eth0:100</br>
+echo 'IPADDR=100 176.99.3.34' >> /etc/sysconfig/network-scripts/ifcfg-eth0:100</br>
+echo 'NETMASK=255.255.255.0' >> /etc/sysconfig/network-scripts/ifcfg-eth0:100</br>
 service network restart</br>
 /usr/bin/perl -pi -e 's/^ethernet_dev=.*/ethernet_dev=eth0:100/' /usr/local/directadmin/conf/directadmin.conf</br>
 service directadmin start</br>
@@ -109,5 +108,4 @@ ifdown eth0:100</p>
 
   </body>
 
-<!-- Mirrored from da.datvu.io/ by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 27 Aug 2021 07:56:36 GMT -->
 </html>
