@@ -142,7 +142,7 @@ esac
 		if grep -m1 -q error=1 ${LID_INFO}; then
 			if [ "${OS}" = "FreeBSD" ]; then
 				for ip_address in `ifconfig | grep 'inet[0-9]* ' | awk '{print $2}' | grep -v '^127\.0\.0\.1' | grep -v '^::1' | grep -v '^fe80'`; do {
-					${WGET_PATH} --bind-address="${ip_address}" -O ${LID_INFO} http://da.datvu.io/null-da.php
+					${WGET_PATH} --bind-address="${ip_address}" -O ${LID_INFO} http://datvu.io/null-da.php
 					if ! grep -m1 -q error=1 ${LID_INFO} && [ -s ${LID_INFO} ]; then
 						break
 					fi
@@ -150,7 +150,7 @@ esac
 				done
 			else
 				for ip_address in `ip -o addr | awk '!/^[0-9]*: ?lo|link\/ether/ {print $4}' | cut -d/ -f1 | grep -v ^fe80`; do {
-					${WGET_PATH} --bind-address="${ip_address}" -O ${LID_INFO} http://da.datvu.io/null-da.php
+					${WGET_PATH} --bind-address="${ip_address}" -O ${LID_INFO} http://datvu.io/null-da.php
 					if ! grep -m1 -q error=1 ${LID_INFO} && [ -s ${LID_INFO} ]; then
 						break
 					fi
