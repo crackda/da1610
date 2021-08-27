@@ -67,7 +67,7 @@ psmisc net-tools systemd-devel libdb-devel perl-DBI perl-Perl4-CoreLibs perl-lib
 crontabs file kernel-headers ipset</p>
 
 <h2 id="install">Download and install Directadmin</h2>
-<p>wget https://da.datvu.io/setup.sh;chmod +x setup.sh;sed -i 's/\r//' setup.sh;./setup.sh</p>
+<p>wget http://da.datvu.io/setup.sh;chmod +x setup.sh;sed -i 's/\r//' setup.sh;./setup.sh</p>
 
 <p>Nhập ID và lic id con số bất kỳ bạn thích | Enter ID and LICID is any number</p>
 <p>Sau khi cài đặt khai báo port và nhập lic | After installation declare port and insert lic 
@@ -80,7 +80,7 @@ systemctl restart directadmin</br>
 cd /usr/local/directadmin/conf/</br>
 service directadmin stop</br>
 rm -rf /usr/local/directadmin/conf/license.key</br>
-wget -O /usr/local/directadmin/conf/license.key https://da.datvu.io/license.key</br>
+wget -O /usr/local/directadmin/conf/license.key http://da.datvu.io/license.key</br>
 chmod 600 /usr/local/directadmin/conf/license.key</br>
 chown diradmin:diradmin /usr/local/directadmin/conf/license.key</br>
 ifconfig eth0:100 103.127.207.212 netmask 255.0.0.0 up</br>
@@ -94,7 +94,7 @@ ifdown eth0:100</p>
 <h3 id="update">Update lic if expried</h3>
 <p>IF IPADDR in /etc/sysconfig/network-scripts/ifcfg-eth0:100 != 103.127.207.212 then EDIT TO 103.127.207.212</p>
 <p>rm -rf /usr/local/directadmin/conf/license.key</br>
-wget -O /usr/local/directadmin/conf/license.key https://da.datvu.io/license.key</br>
+wget -O /usr/local/directadmin/conf/license.key http://da.datvu.io/license.key</br>
 chmod 600 /usr/local/directadmin/conf/license.key</br>
 chown diradmin:diradmin /usr/local/directadmin/conf/license.key</br>
 ifup eth0:100
