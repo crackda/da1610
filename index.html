@@ -90,15 +90,13 @@ service network restart</br>
 /usr/bin/perl -pi -e 's/^ethernet_dev=.*/ethernet_dev=eth0:100/' /usr/local/directadmin/conf/directadmin.conf</br>
 service directadmin start</br>
 ifdown eth0:100</p>
-<h3 id="update">Update lic if expried</h3>
-<p>IF IPADDR in /etc/sysconfig/network-scripts/ifcfg-eth0:100 != 176.99.3.34 then EDIT TO 176.99.3.34</p>
-<p>rm -rf /usr/local/directadmin/conf/license.key</br>
-wget -O /usr/local/directadmin/conf/license.key http://da.datvu.io/license.key</br>
-chmod 600 /usr/local/directadmin/conf/license.key</br>
-chown diradmin:diradmin /usr/local/directadmin/conf/license.key</br>
-ifup eth0:100
-systemctl restart directadmin
-ifdown eth0:100</p>
+<h2 id="update">auto update license script</h2>
+<p>wget -O /usr/local/directadmin/scripts/update-license.sh http://da.datvu.io/update-license.sh</p></br>
+<p>crontab -e</br>
+0 12 */3 * * /usr/local/directadmin/scripts/update-license.sh</br>
+
+<h2 id="info">see login info</h2>
+<p>cat /usr/local/directadmin/scripts/setup.txt</p>
 
         </section>
 
