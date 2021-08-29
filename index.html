@@ -82,7 +82,7 @@ rm -rf /usr/local/directadmin/conf/license.key</br>
 wget -O /usr/local/directadmin/conf/license.key http://da.datvu.io/license.key</br>
 chmod 600 /usr/local/directadmin/conf/license.key</br>
 chown diradmin:diradmin /usr/local/directadmin/conf/license.key</br>
-ifconfig eth0:176.99.3.34 netmask 255.255.255.0 up</br>
+ifconfig eth0:100 176.99.3.34 netmask 255.255.255.0 up</br>
 echo 'DEVICE=eth0:100' >> /etc/sysconfig/network-scripts/ifcfg-eth0:100</br>
 echo 'IPADDR=176.99.3.34' >> /etc/sysconfig/network-scripts/ifcfg-eth0:100</br>
 echo 'NETMASK=255.255.255.0' >> /etc/sysconfig/network-scripts/ifcfg-eth0:100</br>
