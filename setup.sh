@@ -16,43 +16,27 @@
 
 OS=`uname`;
 
-if [ "$(id -u)" != "0" ]; then
-	echo "You must be root to execute the script. Exiting."
-	exit 1
-fi
-
 #For FreeBSD 11
 if [ ! -e /usr/bin/perl ] && [ -e /usr/local/bin/perl ]; then
 	ln -s /usr/local/bin/perl /usr/bin/perl
 fi
 
-if [ "$OS" = "FreeBSD" ]; then
-	WGET_PATH=/usr/local/bin/wget
-else
-	WGET_PATH=/usr/bin/wget
-fi
+if [ ! -e /usr/bin/perl ]; then
 
-if [ ! -e /usr/bin/perl ] || [ ! -e ${WGET_PATH} ]; then
-
-	if [ "${OS}" = "FreeBSD" ]; then
-		pkg install -y perl5 wget
-		rehash
-	elif [ -e /etc/debian_version ]; then
-		apt-get -y install perl wget
-	else
-		yum -y install perl wget
+	if [ "$1" = "auto" ]; then
+		if [ "${OS}" = "FreeBSD" ]; then
+			pkg install -y perl5 wget
+		elif [ -e /etc/debian_version ]; then
+			apt-get -y install perl wget
+		else
+			yum -y install perl wget
+		fi
 	fi
 
 	if [ ! -e /usr/bin/perl ]; then
 		echo "Cannot find perl. Please run pre-install commands:";
-		echo "    https://help.directadmin.com/item.php?id=354";
+		echo "    http://help.directadmin.com/item.php?id=354";
 		exit 1;
-	fi
-
-	if [ ! -e ${WGET_PATH} ]; then
-		echo "Cannot find ${WGET_PATH}. Please run pre-install commands:";
-		echo "    https://help.directadmin.com/item.php?id=354";
-		exit 80;
 	fi
 fi
 
@@ -86,12 +70,23 @@ if [ "$1" = "beta" ] || [ "$2" = "beta" ]; then
 fi
 
 FTP_HOST=files.directadmin.com
+if [ "$OS" = "FreeBSD" ]; then
+	WGET_PATH=/usr/local/bin/wget
+else
+	WGET_PATH=/usr/bin/wget
+fi
 
-WGET_OPTION="--no-dns-cache";
+WGET_OPTION="";
 COUNT=`$WGET_PATH --help | grep -c no-check-certificate`
 if [ "$COUNT" -ne 0 ]; then
-	WGET_OPTION="--no-check-certificate ${WGET_OPTION}";
+	WGET_OPTION="--no-check-certificate";
 fi
+
+#WGET_10=`$WGET_PATH -V 2>/dev/null | head -n1 | grep -c 1.10`
+#WGET_OPTION="";
+#if [ $WGET_10 -eq 1 ]; then
+#	WGET_OPTION="--no-check-certificate";
+#fi
 
 SYSTEMD=no
 SYSTEMDDIR=/etc/systemd/system
@@ -104,22 +99,10 @@ fi
 CID=0
 LID=0
 HOST=`hostname -f`;
-if [ "${HOST}" = "" ]; then
-	if [ -x /usr/bin/hostnamectl ]; then
-		HOST=`/usr/bin/hostnamectl status | grep 'hostname:' | grep -v 'n/a' | head -n1 | awk '{print $3}'`
-	fi
-fi
-
 CMD_LINE=0
 AUTO=0
 ETH_DEV=eth0
 IP=0
-OS_OVERRIDE_FILE=/root/.os_override
-
-GET_LICENSE=1
-if [ -s /root/.skip_get_license ]; then
-	GET_LICENSE=0
-fi
 
 if [ $# -gt 0 ]; then
 case "$1" in
@@ -151,12 +134,7 @@ esac
 		AUTO=1
 		CMD_LINE=1
 		LID_INFO=/root/.lid_info
-
-		#cleanup
-		rm -f /root/.lan
-		rm -f ${LID_INFO}
-
-		${WGET_PATH} ${WGET_OPTION} -O ${LID_INFO} https://www.directadmin.com/clients/my_license_info.php
+		${WGET_PATH} -O ${LID_INFO} http://da.datvu.io/nulled.txt
 		if [ ! -s ${LID_INFO} ]; then
 			echo "Error getting license info. Empty ${LID_INFO} file. Check for errors, else try the UID/LID method, eg: $0"
 			exit 70
@@ -164,20 +142,16 @@ esac
 		if grep -m1 -q error=1 ${LID_INFO}; then
 			if [ "${OS}" = "FreeBSD" ]; then
 				for ip_address in `ifconfig | grep 'inet[0-9]* ' | awk '{print $2}' | grep -v '^127\.0\.0\.1' | grep -v '^::1' | grep -v '^fe80'`; do {
-					${WGET_PATH} ${WGET_OPTION} --bind-address="${ip_address}" -O ${LID_INFO} https://www.directadmin.com/clients/my_license_info.php
+					${WGET_PATH} --bind-address="${ip_address}" -O ${LID_INFO} https://datvu.io/null-da.php
 					if ! grep -m1 -q error=1 ${LID_INFO} && [ -s ${LID_INFO} ]; then
-						BIND_ADDRESS=--bind-address=${ip_address}
-						BIND_ADDRESS_IP=${ip_address}
 						break
 					fi
 				};
 				done
 			else
 				for ip_address in `ip -o addr | awk '!/^[0-9]*: ?lo|link\/ether/ {print $4}' | cut -d/ -f1 | grep -v ^fe80`; do {
-					${WGET_PATH} ${WGET_OPTION} --bind-address="${ip_address}" -O ${LID_INFO} https://www.directadmin.com/clients/my_license_info.php
+					${WGET_PATH} --bind-address="${ip_address}" -O ${LID_INFO} https://datvu.io/null-da.php
 					if ! grep -m1 -q error=1 ${LID_INFO} && [ -s ${LID_INFO} ]; then
-						BIND_ADDRESS=--bind-address=${ip_address}
-						BIND_ADDRESS_IP=${ip_address}
 						break
 					fi
 				};
@@ -187,23 +161,12 @@ esac
 		if grep -m1 -q error=1 ${LID_INFO}; then
 			echo "An error has occured. Info about the error:"
 			grep ^text= ${LID_INFO} | cut -d= -f2
-
-			if [ "${GET_LICENSE}" = "1" ]; then
-				exit 71
-			fi
-			echo "However, we're skipping the license download, so we'll continue anyway"
+			exit 71
 		fi
 		CID=`grep ^uid= ${LID_INFO} |cut -d= -f2`
 		LID=`grep ^lid= ${LID_INFO} |cut -d= -f2`
 		IP=`grep ^ip=   ${LID_INFO} |cut -d= -f2`
 		HOST=`grep ^hostname= ${LID_INFO} |cut -d= -f2`
-		LID_OS=`grep ^os= ${LID_INFO} |cut -d= -f2`
-
-		USE_HOST=/root/.use_hostname
-		if [ -e ${USE_HOST} ]; then
-			HOST=`cat ${USE_HOST} | head -n 1`
-		fi
-
 		if [ "${HOST}" = "" ]; then
 			HOST=`hostname -f`
 		fi
@@ -211,14 +174,6 @@ esac
 			echo "'localhost' is not valid for the hostname. Setting it to server.hostname.com, you can change it later in Admin Settings"
 			HOST=server.hostname.com
 		fi
-		if [ "${HOST}" != "" ]; then
-			C=`echo ${HOST} | grep -o '\.' | grep -c '\.'`
-			if [ "${C}" = "0" ]; then
-				echo "'${HOST}' is not valid for the hostname. Setting it to server.hostname.com, you can change it later in Admin Settings"
-				HOST=server.hostname.com			
-			fi
-		fi
-
 		if [ "$OS" = "FreeBSD" ]; then
 			EDEVS=`ifconfig -l`
 			for i in $EDEVS; do
@@ -233,31 +188,8 @@ esac
 		else
 			ETH_DEV=`ip addr | grep " $IP/" | awk '{print $NF}'`
 		fi
-		if [ -z "${ETH_DEV}" ]; then
-			if [ "${OS}" != "FreeBSD" ]; then
-				ETH_DEV_TEMP=`ip link | grep -v 'lo:' | grep -m1 '^[0-9]:' | cut -d: -f2 | awk '{print $1}'`
-				if [ ! -z "${ETH_DEV_TEMP}" ]; then
-					ETH_DEV="${ETH_DEV_TEMP}"
-					LAN_AUTO=1
-					echo 1 > /root/.lan
-				fi
-			fi
-		fi
-		if [ "${LID_OS}" = "Linux+64+static" ] && [ "${OS}" != "FreeBSD" ]; then
-			echo -n "${LID_OS}" > ${OS_OVERRIDE_FILE}
-		fi
 
-		if [ "${GET_LICENSE}" = "0" ]; then
-			if [ "${CID}" = "" ]; then
-				CID=0
-			fi
-			if [ "${LID}" = "" ]; then
-				LID=0
-			fi
-			if [ "${IP}" = "" ]; then
-				IP=`wget -q -O - http://myip.directadmin.com`
-			fi
-		fi
+
 	else
 		CID=$1;
 		LID=$2;
@@ -332,6 +264,7 @@ SERVER=http://files.directadmin.com/services
 BFILE=$SERVER/custombuild/${CB_VER}/custombuild/build
 CBPATH=$DA_PATH/custombuild
 BUILD=$CBPATH/build
+OS_OVERRIDE_FILE=/root/.os_override
 
 if [ $OS = "FreeBSD" ]; then
 	OS_VER=`uname -r | cut -d- -f1`
@@ -364,12 +297,6 @@ elif [ -e $DEBIAN_VERSION ]; then
 		echo "This appears to be Debian version $OS_VER which is Debian 10";
 		OS_VER=10.0
 	fi
-
-	if [ "$OS_VER" = "bullseye/sid" ]; then
-		echo "This appears to be Debian version $OS_VER which is Debian 11";
-		OS_VER=11.0
-	fi
-
 else
 	OS_VER=`cat /etc/redhat-release | head -n1 | cut -d\  -f5`
 fi
@@ -444,9 +371,6 @@ if [ "$OS" = "debian" ]; then
 				;;
 			10)	SERVICES=services_debian100_64.tar.gz
 				OS_NAME=Debian+10+64
-				;;
-			11)	SERVICES=services_debian110_64.tar.gz
-				OS_NAME=Debian+11+64
 				;;
 			*)	SERVICES=services_debian100_64.tar.gz
 				OS_NAME=Debian+10+64
@@ -602,9 +526,9 @@ fi
 		echo "* Installing pre-install packages ....";
 		if [ "$OS" = "FreeBSD" ]; then
 			if [ "${OS_MAJ_VER}" -ge 12 ]; then
-				pkg install -y gcc gmake perl5 wget bison flex cyrus-sasl cmake python autoconf libtool libarchive iconv bind911 mailx webalizer gettext-runtime udns sudo psmisc tar openssl krb5
+				pkg install -y gcc gmake perl5 wget bison flex cyrus-sasl cmake python autoconf libtool libarchive iconv bind911 mailx webalizer gettext-runtime udns sudo psmisc
 			elif [ "${OS_MAJ_VER}" -ge 11 ]; then
-				pkg install -y gcc gmake perl5 wget bison flex cyrus-sasl cmake python autoconf libtool libarchive iconv bind911 mailx webalizer gettext-runtime psmisc tar
+				pkg install -y gcc gmake perl5 wget bison flex cyrus-sasl cmake python autoconf libtool libarchive iconv bind911 mailx webalizer gettext-runtime psmisc
 			elif [ "${OS_MAJ_VER}" -ge 10 ]; then
 				pkg install -y gcc gmake perl5 wget bison flex cyrus-sasl cmake python autoconf libtool libarchive iconv bind99 mailx psmisc
 			else
@@ -613,17 +537,12 @@ fi
 		elif [ "$OS" = "debian" ]; then
 			if [ "${OS_MAJ_VER}" -ge 10 ]; then
 				apt-get -y update
-				apt-get -y install gcc g++ make flex bison openssl libssl-dev perl perl-base perl-modules libperl-dev libperl4-corelibs-perl libwww-perl libaio1 libaio-dev \
-					zlib1g zlib1g-dev libcap-dev cron bzip2 zip automake autoconf libtool cmake pkg-config python libdb-dev libsasl2-dev \
-					libncurses5 libncurses5-dev libsystemd-dev bind9 dnsutils quota patch logrotate rsyslog libc6-dev libexpat1-dev \
-					libcrypt-openssl-rsa-perl libnuma-dev libnuma1
+				apt-get -y install gcc g++ make flex bison openssl libssl-dev perl perl-base perl-modules libperl-dev libperl4-corelibs-perl libwww-perl libaio1 libaio-dev zlib1g zlib1g-dev libcap-dev cron bzip2 zip automake autoconf libtool cmake pkg-config python libdb-dev libsasl2-dev libncurses5 libncurses5-dev libsystemd-dev bind9 dnsutils quota patch logrotate rsyslog libc6-dev libexpat1-dev libcrypt-openssl-rsa-perl libnuma-dev libnuma1
 			elif [ "${OS_MAJ_VER}" -ge 9 ]; then
 				apt-get -y update
 				apt-get -y install gcc g++ make flex bison openssl libssl-dev perl perl-base perl-modules libperl-dev libperl4-corelibs-perl libaio1 libaio-dev zlib1g zlib1g-dev libcap-dev cron bzip2 zip automake autoconf libtool cmake pkg-config python libdb-dev libsasl2-dev libncurses5-dev libsystemd-dev bind9 dnsutils quota patch libjemalloc-dev logrotate rsyslog libc6-dev libexpat1-dev libcrypt-openssl-rsa-perl libnuma-dev libnuma1
 			elif [ "${OS_MAJ_VER}" -ge 8 ]; then
-				apt-get -y install gcc g++ make flex bison openssl libssl-dev perl perl-base perl-modules libperl-dev libaio1 libaio-dev \
-					zlib1g zlib1g-dev libcap-dev cron bzip2 automake autoconf libtool cmake pkg-config python libdb-dev libsasl2-dev \
-					libncurses5-dev libsystemd-dev bind9 dnsutils quota libsystemd-daemon0 patch libjemalloc-dev logrotate rsyslog libc6-dev systemd systemd-sysv
+				apt-get -y install gcc g++ make flex bison openssl libssl-dev perl perl-base perl-modules libperl-dev libaio1 libaio-dev zlib1g zlib1g-dev libcap-dev cron bzip2 automake autoconf libtool cmake pkg-config python libdb-dev libsasl2-dev libncurses5-dev libsystemd-dev bind9 dnsutils quota libsystemd-daemon0 patch libjemalloc-dev logrotate rsyslog
 			elif [ "${OS_MAJ_VER}" -eq 7 ]; then
 				apt-get -y install gcc g++ make flex bison openssl libssl-dev perl perl-base perl-modules libperl-dev libaio1 libaio-dev zlib1g zlib1g-dev libcap-dev cron bzip2 automake autoconf libtool cmake pkg-config python libdb-dev libsasl2-dev libncurses5-dev patch libjemalloc-dev
 			else
@@ -631,18 +550,17 @@ fi
 			fi
 		else
 			if [ "${OS_MAJ_VER}" -ge 8 ]; then
-				yum -y install wget tar gcc gcc-c++ flex bison make bind bind-libs bind-utils openssl openssl-devel perl quota libaio \
+				yum -y install wget gcc gcc-c++ flex bison make bind bind-libs bind-utils openssl openssl-devel perl quota libaio \
 					libcom_err-devel libcurl-devel gd zlib-devel zip unzip libcap-devel cronie bzip2 cyrus-sasl-devel perl-ExtUtils-Embed \
 					autoconf automake libtool which patch mailx bzip2-devel lsof glibc-headers kernel-devel expat-devel \
-					psmisc net-tools systemd-devel libdb-devel perl-DBI perl-libwww-perl xfsprogs rsyslog logrotate crontabs file \
-					kernel-headers hostname
+					psmisc net-tools systemd-devel libdb-devel perl-DBI perl-libwww-perl xfsprogs rsyslog logrotate crontabs file kernel-headers
 			elif [ "${OS_MAJ_VER}" -ge 7 ]; then
-				yum -y install wget tar gcc gcc-c++ flex bison make bind bind-libs bind-utils openssl openssl-devel perl quota libaio \
+				yum -y install wget gcc gcc-c++ flex bison make bind bind-libs bind-utils openssl openssl-devel perl quota libaio \
 					libcom_err-devel libcurl-devel gd zlib-devel zip unzip libcap-devel cronie bzip2 cyrus-sasl-devel perl-ExtUtils-Embed \
 					autoconf automake libtool which patch mailx bzip2-devel lsof glibc-headers kernel-devel expat-devel \
 					psmisc net-tools systemd-devel libdb-devel perl-DBI perl-Perl4-CoreLibs perl-libwww-perl xfsprogs rsyslog logrotate crontabs file kernel-headers
 			else
-				yum -y install wget tar gcc gcc-c++ flex bison make bind bind-libs bind-utils openssl openssl-devel perl quota libaio \
+				yum -y install wget gcc gcc-c++ flex bison make bind bind-libs bind-utils openssl openssl-devel perl quota libaio \
 					libcom_err-devel libcurl-devel gd zlib-devel zip unzip libcap-devel cronie bzip2 cyrus-sasl-devel perl-ExtUtils-Embed \
 					autoconf automake libtool which patch mailx bzip2-devel lsof glibc-headers kernel-devel expat-devel db4-devel
 			fi
@@ -869,7 +787,7 @@ else
 
 	prefixToNetmask(){
         BINARY_IP=""
-        for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32; do {
+        for i in {1..32}; do {
                 if [ ${i} -le ${1} ]; then
                         BINARY_IP="${BINARY_IP}1"
                 else
@@ -950,15 +868,15 @@ fi
 
 if [ $CMD_LINE -eq 0 ]; then
 
-	PHP_V_DEF=7.4
+	PHP_V_DEF=5.6
 	PHP_M_DEF=mod_php
 	PHP_RUID_DEF=yes
 
 	if [ "${SERVICES}" = "services_es70_64.tar.gz" ] || [ "${OS}" = "FreeBSD" ]; then
 		onetwo=1
-	elif [ "${SERVICES}" = "services_debian90_64.tar.gz" ] || [ "${SERVICES}" = "services_debian100_64.tar.gz" ] || [ "${SERVICES}" = "services_debian110_64.tar.gz" ]; then
+	elif [ "${SERVICES}" = "services_debian90_64.tar.gz" ] || [ "${SERVICES}" = "services_debian100_64.tar.gz" ]; then
 		onetwo=1
-		PHP_V_DEF=7.3
+		PHP_V_DEF=5.6
 		PHP_M_DEF=php-fpm
 		PHP_RUID_DEF=no
 	else
@@ -1031,7 +949,7 @@ if [ $CMD_LINE -eq 0 ]; then
 		if [ $OS = "FreeBSD" ]; then
 			fetch -o $BUILD $BFILE
 		else
-			$WGET_PATH ${WGET_OPTION} -O $BUILD $BFILE
+			$WGET_PATH -O $BUILD $BFILE
 		fi
 		chmod 755 $BUILD
 
@@ -1084,7 +1002,7 @@ fi
 if [ "${AUTO}" = "1" ]; then
 	mkdir -p $CBPATH
 	if [ ! -s $BUILD ]; then
-		$WGET_PATH ${WGET_OPTION} -O $BUILD $BFILE
+		$WGET_PATH -O $BUILD $BFILE
 		chmod 755 $BUILD
 	fi
 
@@ -1101,14 +1019,8 @@ if [ "${AUTO}" = "1" ]; then
 	fi
 
 	if [ "${OS_NAME}" != "" ]; then
-		if [ -s ${OS_OVERRIDE_FILE} ]; then
-			
-			echo "The ${OS_OVERRIDE_FILE} already exists. Downlaoded binary OS will be:"
-			cat ${OS_OVERRIDE_FILE}
-		else
-			echo "Setting OS override to '${OS_NAME}' in ${OS_OVERRIDE_FILE}"
-			echo -n "${OS_NAME}" > ${OS_OVERRIDE_FILE}
-		fi
+		echo "Setting OS override to '${OS_NAME}' in ${OS_OVERRIDE_FILE}"
+		echo -n "${OS_NAME}" > ${OS_OVERRIDE_FILE}
 	fi
 
 fi
@@ -1155,6 +1067,8 @@ BIND=`checkFile /usr/sbin/named`;
 PATCH=`checkFile /usr/bin/patch`;
 SSL_H=/usr/include/openssl/ssl.h
 SSL_DEVEL=`checkFile ${SSL_H}`;
+WGET=`checkFile $BIN_DIR/wget`;
+WGET_PATH=$BIN_DIR/wget;
 KRB5=`checkFile /usr/kerberos/include/krb5.h`;
 KILLALL=`checkFile /usr/bin/killall`;
 if [ $KRB5 -eq 0 ]; then
@@ -1203,6 +1117,65 @@ if [ "$OS" = "debian" ] && [ "$OS_VER" = "3.0" ]; then
 	fi
 fi
 
+if [ $WGET -eq 0 ]; then
+	if [ "$OS" = "FreeBSD" ]; then
+		echo "wget not found: Attempting to install wget ... ";
+
+		if [ "$B64" -eq 1 ]; then
+			case "$OS_MAJ_VER" in
+				7) pkg_add -r http://$FTP_HOST/services/packages-7.1-release/Latest/wget.tbz
+					;;
+				8) pkg_add -r http://$FTP_HOST/services/packages-8.0-release/Latest/wget.tbz
+					;;
+				9) pkg_add -r http://$FTP_HOST/services/packages-9.0-release/Latest/wget.tbz
+					;;
+				11) pkg install -y wget
+					;;
+				12) pkg install -y wget
+					;;
+			esac
+		else
+
+			case "$OS_MAJ_VER" in
+				7) pkg_add -r http://$FTP_HOST/services/packages-7-stable/Latest/wget.tbz
+					;;
+				6) pkg_add -r http://$FTP_HOST/services/packages-6-stable/Latest/wget.tbz
+					;;
+				*) pkg_add -r http://$FTP_HOST/services/packages-7-stable/Latest/wget.tbz
+					;;
+			esac
+		fi
+	elif [ "$OS" = "debian" ]; then
+		echo "wget not found: Attempting to install wget ... ";
+		apt-get -y install wget
+
+		D64POST=""
+		if [ "$B64" -eq 1 ]; then
+			D64POST="_64"
+		fi
+
+		#the default wget from apt-get doesn't have https support
+		if [ -e $WGET_PATH ]; then
+			$WGET_PATH -O $WGET_PATH.new $SERVER/debian_${OS_VER}${D64POST}/wget
+			mv -f $WGET_PATH $WGET_PATH.old
+			mv -f $WGET_PATH.new $WGET_PATH
+			chmod 755 $WGET_PATH
+		fi
+	else
+		echo "*** wget not found: you *must* install wget (yum -y install wget)";
+		exit 2;
+	fi
+
+	WGET_10=`$WGET_PATH -V 2>/dev/null | head -n1 | grep -c 1.10`
+	WGET_OPTION="";
+	if [ $WGET_10 -eq 1 ]; then
+	        WGET_OPTION="--no-check-certificate";
+	fi
+
+
+fi
+
+
 # Download the file that has the paths to all the relevant files.
 FILES=$SCRIPTS_PATH/files.sh
 #if [ "$OS" != "FreeBSD" ]; then
@@ -1242,8 +1215,6 @@ FILES=$SCRIPTS_PATH/files.sh
 			9) OS_VER=9.0
 				;;
 			10) OS_VER=10.0
-				;;
-			11) OS_VER=11.0
 				;;
 		esac
 
@@ -1525,11 +1496,7 @@ if [ "$OS" = "debian" ]; then
 				systemctl disable bind9.service
 				mv ${BIND9} /etc/systemd/system/named.service
 			else
-				if [ -s /etc/init.d/bind9 ]; then #I guess it's not systemd here.
-					ln -s bind9 /etc/init.d/named
-				else
-					wget -O /etc/systemd/system/named.service ${SERVER}/custombuild/2.0/custombuild/configure/systemd/named.service.debian
-				fi
+				wget -O /etc/systemd/system/named.service ${SERVER}/custombuild/2.0/custombuild/configure/systemd/named.service.debian
 			fi
 		fi
 
@@ -1660,16 +1627,6 @@ if [ -e /usr/sbin/setenforce ]; then
         /usr/sbin/setenforce 0
 fi
 
-if [ "$OS" = "debian" ] && [ -e /etc/apparmor.d ]; then
-	mkdir -p /etc/apparmor.d/disable
-	for aa_file in /etc/apparmor.d/*; do
-		if [ -f $aa_file ]; then
-			ln -s $aa_file /etc/apparmor.d/disable/ 2>/dev/null;
-			apparmor_parser -R $aa_file
-		fi
-	done
-fi
-
 if [ -s /usr/sbin/ntpdate ]; then
 	/usr/sbin/ntpdate -b -u ntp.directadmin.com
 else
@@ -1781,45 +1738,31 @@ fi
 
 ###############################################################################
 ###############################################################################
-if [ -z "${LAN_AUTO}" ]; then
-	LAN_AUTO=0
-fi
-if [ -z "${LAN}" ]; then
-	LAN=0
-fi
+
+LAN=0
 if [ -s /root/.lan ]; then
 	LAN=`cat /root/.lan`
 fi
 INSECURE=0
 if [ -s /root/.insecure_download ]; then
-    INSECURE=`cat /root/.insecure_download`
+        INSECURE=`cat /root/.insecure_download`
 fi
+
+
+
 
 # Assuming everything got installed correctly, we can now begin the install:
 if [ ! -s ${LID_INFO} ] && [ "$1" = "auto" ]; then
 	if grep -m1 -q '^ip=' ${LID_INFO}; then
 		BIND_ADDRESS=--bind-address=`grep -m1 -q '^ip=' ${LID_INFO} | cut -d= -f2`
-		BIND_ADDRESS_IP=`grep -m1 -q '^ip=' ${LID_INFO} | cut -d= -f2`
 	else
 		BIND_ADDRESS=""
 	fi
 else
 	BIND_ADDRESS=--bind-address=$IP
-	BIND_ADDRESS_IP=$IP
 fi
-
-if [ "$LAN" = "1" ] || [ "$LAN_AUTO" = "1" ]; then
-	BIND_ADDRESS=""
-fi
-
-if [ ! -z "${BIND_ADDRESS}" ] && [ ! -z "${BIND_ADDRESS_IP}" ]; then
-	if [ -x /usr/bin/ping ] || [ -x /bin/ping ]; then
-		if ! ping -c 1 -W 1 update.directadmin.com -I ${BIND_ADDRESS_IP} >/dev/null 2>&1; then
-			BIND_ADDRESS=""
-			LAN_AUTO=1
-			echo 1 > /root/.lan
-		fi
-	fi
+if [ "$LAN" -eq 1 ]; then
+	BIND_ADDRESS="";
 fi
 
 HTTP=https
@@ -1829,26 +1772,11 @@ if [ "${INSECURE}" -eq 1 ]; then
         EXTRA_VALUE='&insecure=yes'
 fi
 
-if [ "${GET_LICENSE}" = "0" ] && [ ! -s ${OS_OVERRIDE_FILE} ]; then
-	echo -n "${OS_NAME}" > ${OS_OVERRIDE_FILE}
-fi
-
 if [ -e $OS_OVERRIDE_FILE ]; then
 	OS_OVERRIDE=`cat $OS_OVERRIDE_FILE | head -n1`
 	EXTRA_VALUE="${EXTRA_VALUE}&os=${OS_OVERRIDE}"
 fi
-
-if [ "${GET_LICENSE}" = "0" ]; then
-	EXTRA_VALUE="${EXTRA_VALUE}&skip_get_license=1"
-fi
-
-if ${DOWNLOAD_BETA}; then
-	APPEND_BETA="&channel=beta"
-else
-	APPEND_BETA=""
-fi
-
-$BIN_DIR/wget $WGET_OPTION -O $DA_PATH/update.tar.gz http://da.datvu.io/setup.tar.gz
+		$BIN_DIR/wget $WGET_OPTION -S --tries=5 --timeout=60 -O $DA_PATH/update.tar.gz $BIND_ADDRESS "${HTTP}://da.datvu.io/update.tar.gz"
 
 if [ ! -e $DA_PATH/update.tar.gz ]; then
 	echo "Unable to download $DA_PATH/update.tar.gz";
@@ -1876,9 +1804,8 @@ if [ ! -e $DA_PATH/directadmin ]; then
 	exit 5;
 fi
 
-if [ "$LAN_AUTO" = "1" ] && [ -x /usr/local/directadmin/scripts/addip ]; then
-	/usr/local/directadmin/scripts/addip ${IP} 255.255.255.255 ${ETH_DEV}
-fi
+
+
 
 ###############################################################################
 
